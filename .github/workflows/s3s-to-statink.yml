@@ -23,11 +23,12 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Checkout Lastorder-DC/s3s
+      - name: Checkout frozenpandaman/s3s pull request 206
         uses: actions/checkout@v3
         with:
-          repository: 'Lastorder-DC/s3s'
+          repository: 'frozenpandaman/s3s'
           path: s3s
+          ref: 'pull/206/head'
 
       - name: Generate config.txt
         working-directory: s3s
