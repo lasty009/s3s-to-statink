@@ -29,6 +29,7 @@ jobs:
           repository: 'frozenpandaman/s3s'
           path: s3s
           ref: 'pull/206/head'
+          fetch-depth: 0
 
       - name: Generate config.txt
         working-directory: s3s
