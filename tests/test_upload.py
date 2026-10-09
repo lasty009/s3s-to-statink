@@ -49,7 +49,7 @@ class UploadTests(unittest.TestCase):
             token = session_token()
             output = io.StringIO()
 
-            def fake_process(command, cwd, env, timeout):
+            def fake_process(command, cwd, env, timeout, on_output=None):
                 calls.append(command)
                 data_dirs.append(Path(env["NXAPI_DATA_PATH"]))
                 self.assertNotIn("API_KEY", env)
@@ -62,7 +62,9 @@ class UploadTests(unittest.TestCase):
                     config.update(gtoken="generated-gtoken", bullettoken="generated-bullet", acc_loc="ja-JP|JP")
                     (root / "config.txt").write_text(json.dumps(config))
                     return subprocess.CompletedProcess(command, 0, "private account details")
-                return subprocess.CompletedProcess(command, int(s3s_failure), "generated-gtoken generated-bullet " + "k" * 43)
+                message = "generated-gtoken generated-bullet " + "k" * 43
+                on_output(message)
+                return subprocess.CompletedProcess(command, int(s3s_failure), "")
 
             error = None
             with patch.dict(os.environ, {"API_KEY": "k" * 43, "SESSION_TOKEN": token}, clear=True):
@@ -103,6 +105,16 @@ class UploadTests(unittest.TestCase):
         calls, output, error = self.perform(s3s_failure=True)
         self.assertIsNotNone(error)
         self.assertNotIn("Upload completed successfully", output)
+
+    def test_streaming_timeout_preserves_diagnostic_output(self):
+        lines = []
+        result = upload.run_process(
+            [upload.sys.executable, "-u", "-c", "import time; print('started', flush=True); time.sleep(10)"],
+            None, dict(os.environ), 0.5, on_output=lines.append,
+        )
+        self.assertEqual(result.returncode, 124)
+        self.assertIn("started", lines)
+        self.assertIn("The s3s operation timed out.", lines)
 
     def test_existing_config_is_preserved(self):
         with tempfile.TemporaryDirectory() as root:

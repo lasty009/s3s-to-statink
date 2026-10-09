@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 
@@ -54,7 +55,36 @@ def redact(output, secrets):
     return re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[REDACTED]", output)
 
 
-def run_process(command, cwd, env, timeout):
+def run_process(command, cwd, env, timeout, on_output=None):
+    if on_output is not None:
+        # A timer bounds silent network waits as well as processes producing output.
+        with subprocess.Popen(
+            command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace",
+        ) as process:
+            expired = threading.Event()
+
+            def stop_on_timeout():
+                if process.poll() is None:
+                    expired.set()
+                    process.kill()
+
+            timer = threading.Timer(timeout, stop_on_timeout)
+            timer.daemon = True
+            timer.start()
+            try:
+                for line in process.stdout:
+                    on_output(line.rstrip())
+                returncode = process.wait()
+                if expired.is_set():
+                    on_output("The s3s operation timed out.")
+                    returncode = 124
+                return subprocess.CompletedProcess(command, returncode, "")
+            finally:
+                timer.cancel()
+                if process.poll() is None:
+                    process.kill()
     try:
         return subprocess.run(
             command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
@@ -124,6 +154,7 @@ def execute(s3s_dir, check_only=False):
             result = run_process(
                 [sys.executable, "-u", "s3s.py", "-r", "--norefresh", "1"],
                 s3s_dir, env, 900,
+                on_output=lambda line: print("s3s: " + redact(line, secrets), flush=True),
             )
             # Escape workflow-command syntax in third-party stdout.
             for line in redact(result.stdout, secrets).splitlines():
