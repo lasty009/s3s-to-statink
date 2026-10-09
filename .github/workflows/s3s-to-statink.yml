@@ -20,16 +20,16 @@ concurrency:
 
 jobs:
   upload:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout automation
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Checkout s3s
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           repository: frozenpandaman/s3s
           ref: 732c91e5ac9b82a413f96bc75831996f8cf4f9ea
@@ -37,12 +37,12 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.11'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
 
