@@ -1,44 +1,63 @@
-name: Splatoon3 Battlelog Uplorder
+name: Splatoon3 Battlelog Uploader
 
 on:
   schedule:
-    - cron: '0 0-23/12 * * *'
+    # UTC even hours + 17 minutes = JST odd hours + 17 minutes.
+    - cron: '17 */2 * * *'
   workflow_dispatch:
+    inputs:
+      check_only:
+        description: 'Check authentication without uploading to stat.ink'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s3s-to-statink
+  cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      API_KEY: ${{ secrets.API_KEY }}
-      ACC_LOC: ${{ secrets.ACC_LOC }}
-      GTOKEN: ${{ secrets.GTOKEN }}
-      BULLETTOKEN: ${{ secrets.BULLETTOKEN }}
-      SESSION_TOKEN: ${{ secrets.SESSION_TOKEN }}
-      F_GEN: ${{ secrets.F_GEN }}
-
-    name: Splatoon3 Battlelog Uploader
+  upload:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Checkout automation
+        uses: actions/checkout@v7.0.1
         with:
-          python-version: 3.11
+          persist-credentials: false
 
-      - name: Checkout Lastorder-DC/s3s
-        uses: actions/checkout@v3
+      - name: Checkout s3s
+        uses: actions/checkout@v7.0.1
         with:
-          repository: 'Lastorder-DC/s3s'
+          repository: frozenpandaman/s3s
+          ref: 732c91e5ac9b82a413f96bc75831996f8cf4f9ea
           path: s3s
+          persist-credentials: false
 
-      - name: Generate config.txt
-        working-directory: s3s
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
         run: |
-          echo '{"api_key": "${{ env.API_KEY }}", "acc_loc": "${{ env.ACC_LOC }}", "gtoken": "${{ env.GTOKEN }}", "bullettoken": "${{ env.BULLETTOKEN }}", "session_token": "${{ env.SESSION_TOKEN }}", "f_gen": "${{ env.F_GEN }}" }' > config.txt
-          cat config.txt
-      - name: Install s3s requirements
-        working-directory: s3s
-        run: |
-          pip install -r requirements.txt
-      - name: Run s3s
-        working-directory: s3s
-        run: |
-          python3 s3s.py -r
+          python -m pip install -r s3s/requirements.txt
+          npm install --global nxapi@1.6.1-next.257
+
+      - name: Refresh authentication and upload missing results
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          SESSION_TOKEN: ${{ secrets.SESSION_TOKEN }}
+          CHECK_ONLY: ${{ inputs.check_only && '1' || '0' }}
+          NXAPI_USER_AGENT: 's3s-to-statink/2.0.0 (+https://github.com/lasty009/s3s-to-statink)'
+          NXAPI_DEBUG_FILE: '0'
+          NXAPI_SKIP_UPDATE_CHECK: '1'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/upload.py --s3s-dir s3s

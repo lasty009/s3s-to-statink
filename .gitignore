@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+config.txt
+.env
+.nxapi/
+session-token.txt
+node_modules/
