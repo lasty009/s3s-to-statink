@@ -2,8 +2,8 @@ name: Splatoon3 Battlelog Uploader
 
 on:
   schedule:
-    # UTC 03:00 and 15:00 = JST 12:00 and 00:00 (the next day).
-    - cron: '0 3,15 * * *'
+    # UTC 03:00,07:00,11:00,15:00,19:00,23:00 = JST every 4 hours from 00:00.
+    - cron: '0 3-23/4 * * *'
   workflow_dispatch:
     inputs:
       check_only:
