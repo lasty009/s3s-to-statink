@@ -149,9 +149,12 @@ def execute(s3s_dir, check_only=False):
                 ):
                     if marker in output:
                         print("Authentication diagnostic: " + label, flush=True)
-                for status in (400, 401, 403, 404, 406, 429, 500, 502, 503, 504):
-                    if re.search(r"(?<!\\d)" + str(status) + r"(?!\\d)", output):
-                        print("Authentication diagnostic: HTTP/status " + str(status), flush=True)
+                for code in ("rate_limit", "incompatible_client", "unsupported_version", "invalid_token", "invalid_request", "service_unavailable", "request_parameter_not_set", "insufficient_scope", "unauthorised"):
+                    if code in output:
+                        print("Authentication diagnostic: " + code, flush=True)
+                match = re.search(r"from https://[^\s]+\s+\((400|401|403|404|406|429|500|502|503|504)\b", output)
+                if match:
+                    print("Authentication diagnostic: HTTP " + match.group(1), flush=True)
                 raise UploadError("nxapi authentication failed. " + hint)
 
             config = json.loads(config_path.read_text(encoding="utf-8"))
