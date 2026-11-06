@@ -134,6 +134,24 @@ def execute(s3s_dir, check_only=False):
                 hint = "Check Nintendo/nxapi service availability and renew SESSION_TOKEN if necessary."
                 if "expired" in result.stdout.lower() or "invalid_grant" in result.stdout.lower():
                     hint = "Renew SESSION_TOKEN using README.md and update the GitHub secret."
+                output = result.stdout.lower()
+                for marker, label in (
+                    ("remote configuration prevents", "remote configuration rejected authentication"),
+                    ("[znca-api]", "nxapi authentication service returned an error"),
+                    ("[na]", "Nintendo Account authentication returned an error"),
+                    ("[znc]", "Nintendo Switch app authentication returned an error"),
+                    ("fetch failed", "network request failed"),
+                    ("econnrefused", "connection refused"),
+                    ("etimedout", "network timeout"),
+                    ("syntaxerror", "JavaScript syntax error"),
+                    ("typeerror", "JavaScript type error"),
+                    ("invalid_grant", "invalid grant"),
+                ):
+                    if marker in output:
+                        print("Authentication diagnostic: " + label, flush=True)
+                for status in (400, 401, 403, 404, 406, 429, 500, 502, 503, 504):
+                    if re.search(r"(?<!\\d)" + str(status) + r"(?!\\d)", output):
+                        print("Authentication diagnostic: HTTP/status " + str(status), flush=True)
                 raise UploadError("nxapi authentication failed. " + hint)
 
             config = json.loads(config_path.read_text(encoding="utf-8"))
